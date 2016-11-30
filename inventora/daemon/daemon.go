@@ -2,12 +2,12 @@ package daemon
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
+	"sync"
 	"time"
 
-	"encoding/json"
-
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 type Posting struct {
@@ -20,33 +20,48 @@ type Posting struct {
 
 type Daemon struct {
 	databases map[string]*sql.DB
-	// dbMapLock sync.RWMutex // TODO
+	dbMapLock sync.RWMutex
 }
 
 func New() Daemon {
 	return Daemon{
 		databases: make(map[string]*sql.DB),
+		dbMapLock: sync.RWMutex{},
 	}
 }
 
-func (d Daemon) getDB(name string) *sql.DB {
+func (d *Daemon) getDB(name string) *sql.DB {
+	d.dbMapLock.RLock()
 	db := d.databases[name]
+	if db != nil {
+		d.dbMapLock.RUnlock()
+		return db
+	}
+	d.dbMapLock.RUnlock()
+
+	d.dbMapLock.Lock()
+	log.Println("Acquired lock")
+	defer d.dbMapLock.Unlock()
+
+	// Try to acquire again, in case the connection has been acquired by another goroutine
+	db = d.databases[name]
 	if db != nil {
 		return db
 	}
 
-	db, err := sql.Open("sqlite3",
-		"./"+name+".db")
+	// log.Println("DB not found in memory, opening new one")
+
+	db, err := sql.Open("mysql", "root@/"+name)
 	if err != nil {
 		log.Fatal(err)
 	}
 	db.Exec(`CREATE TABLE IF NOT EXISTS posting (
-		ID INTEGER PRIMARY KEY,
+		ID INTEGER AUTO_INCREMENT PRIMARY KEY,
 		CreationInstant INT,
 		Tags TEXT
 	)`)
 	db.Exec(`CREATE TABLE IF NOT EXISTS movements (
-		ID INTEGER PRIMARY KEY,
+		ID INTEGER AUTO_INCREMENT PRIMARY KEY,
 		PostingID INT,
 		AccountID TEXT,
 		Quantity INT
@@ -58,9 +73,10 @@ func (d Daemon) getDB(name string) *sql.DB {
 	return db
 }
 
-func (d Daemon) CommitPosting(posting *Posting) error {
-	log.Printf("Putting %+v", posting)
+func (d *Daemon) CommitPosting(posting *Posting) error {
 	db := d.getDB(posting.DBName)
+	log.Println("DB get")
+	// t := time.Now()
 
 	tx, err := db.Begin()
 	if err != nil {
@@ -69,7 +85,9 @@ func (d Daemon) CommitPosting(posting *Posting) error {
 	defer tx.Rollback()
 
 	marshaledTags, _ := json.Marshal(posting.Tags)
+	// tm := time.Now()
 	result, err := tx.Exec("INSERT INTO posting (CreationInstant, Tags) VALUES (?, ?)", time.Now().Unix(), marshaledTags)
+	// log.Printf("posting: exec in %f sec", time.Since(tm).Seconds())
 	if err != nil {
 		return err
 	}
@@ -90,7 +108,7 @@ func (d Daemon) CommitPosting(posting *Posting) error {
 	return err
 }
 
-func (d Daemon) AccountValue(dbName string, accountID string) (int64, error) {
+func (d *Daemon) AccountValue(dbName string, accountID string) (int64, error) {
 	db := d.getDB(dbName)
 	var quantity *int64
 	err := db.QueryRow("SELECT SUM(Quantity) FROM movements WHERE AccountID = ?", accountID).Scan(&quantity)
@@ -100,6 +118,6 @@ func (d Daemon) AccountValue(dbName string, accountID string) (int64, error) {
 	return *quantity, err
 }
 
-func (d Daemon) RegisterAccountChangeHook(dbName string, accountID string, fn func(accountID string, lastPostingID string, lastPostingInstant int64)) {
+func (d *Daemon) RegisterAccountChangeHook(dbName string, accountID string, fn func(accountID string, lastPostingID string, lastPostingInstant int64)) {
 	// TODO
 }
