@@ -114,6 +114,7 @@ func (d *Database) CommitPosting(posting *Posting) error {
 func counterToID(v uint64) string {
 	// TODO: use more compact formatting, base64?
 	s := strconv.FormatUint(v, 36)
+	// To make base36 lexicographically sorted (needed for couchdb reduce function) we prepend the key with the length of the string s, so that longer strings are sorted after shorter strings.
 	return fmt.Sprintf("%s%s", strconv.FormatInt(int64(len(s)-1), 36), s)
 }
 
