@@ -8,18 +8,19 @@ import (
 )
 
 func main() {
-	d, err := daemon2.New("hello")
+	d, err := daemon2.New("hello2")
 	log.Printf(": %+v %+v", d, err)
 	// var i uint64
 	// for i = 9; i <= 1000; i++ {
 	// 	log.Printf("%d %s %v", i, counterToID(i), idToCounter(counterToID(i)))
 	// }
-	posting := daemon2.Posting{DBName: "abc2", Movements: map[string]int64{
-		"Account1": 10,
-		"Account2": -10,
+	posting := daemon2.Posting{DBName: "abc2", Movements: map[string]float64{
+		"Account1": 10.12,
+		"Account2": -10.12,
 	}}
 	err = d.CommitPosting(&posting)
 	log.Printf("CommitPosting: %+v", err)
+	log.Printf("%f", d.AccountValue("Account1"))
 	log.Printf(": %+v %+v", d, err)
 }
 

@@ -1,21 +1,21 @@
 package daemon2
 
 import (
+	"encoding/json"
 	"fmt"
-	"log"
-
-	"sync"
-
 	"strconv"
+	"sync"
 
 	"github.com/zemirco/couchdb"
 )
+
+const ddocName = "postings"
 
 type Posting struct {
 	couchdb.Document
 	CreationInstant int64
 	DBName          string
-	Movements       map[string]int64
+	Movements       map[string]float64
 	Tags            map[string]string
 }
 
@@ -32,11 +32,11 @@ func New(dbName string) (*Database, error) {
 	if err != nil {
 		return nil, err
 	}
-	server, err := client.Info()
+	_, err = client.Info()
 	if err != nil {
 		return nil, err
 	}
-	log.Printf("%+v", server)
+	// log.Printf("%+v", server)
 
 	_, err = client.Create(dbName)
 	d.db = client.Use(dbName)
@@ -57,9 +57,22 @@ func New(dbName string) (*Database, error) {
 					}
 					`,
 				},
+				"movements": couchdb.DesignDocumentView{
+					Map: `
+					function (doc) {
+						if (doc.Movements) {
+							for (var k in doc.Movements) {
+								var i = +doc.Movements[k]
+								emit(k, isNaN(i) ? 0 : i)
+							}
+						}
+					}
+					`,
+					Reduce: "_sum",
+				},
 			},
 		}
-		ddoc.ID = "_design/lastID"
+		ddoc.ID = "_design/" + ddocName
 		d.db.Put(&ddoc)
 	} else {
 		// Database already exists, so we get the last ID from existing reduce function.
@@ -79,12 +92,11 @@ func (d *Database) incrementID() uint64 {
 }
 
 func (d *Database) lastIDForCounter() uint64 {
-	view := d.db.View("lastID")
+	view := d.db.View(ddocName)
 	itsTrue := true
 	response, _ := view.Get("lastID", couchdb.QueryParameters{
 		Reduce: &itsTrue,
 	})
-	log.Printf("%+v", response)
 	if response != nil && len(response.Rows) > 0 {
 		return idToCounter(response.Rows[0].Value.(string))
 	}
@@ -123,10 +135,23 @@ func idToCounter(s string) uint64 {
 	return i
 }
 
-func (d *Database) AccountValue(dbName string, accountID string) (int64, error) {
-	return 0, nil
+func (d *Database) AccountValue(accountID string) float64 {
+	view := d.db.View(ddocName)
+	s, _ := json.Marshal(accountID)
+	accountIDJSONEncoded := string(s)
+	itsTrue := true
+	response, err := view.Get("movements", couchdb.QueryParameters{
+		Group:  &itsTrue,
+		Reduce: &itsTrue,
+		Key:    &accountIDJSONEncoded,
+	})
+	// log.Println("---", response, err)
+	if response != nil && len(response.Rows) > 0 {
+		return response.Rows[0].Value.(float64)
+	}
+	return 0
 }
 
-func (d *Database) RegisterAccountChangeHook(dbName string, accountID string, fn func(accountID string, lastPostingID string, lastPostingInstant int64)) {
+func (d *Database) RegisterAccountChangeHook(accountID string, fn func(accountID string, lastPostingID string, lastPostingInstant int64)) {
 	// TODO
 }
