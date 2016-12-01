@@ -8,13 +8,13 @@ import (
 )
 
 func main() {
-	d, err := daemon2.New("hello2")
+	d, err := daemon2.New("http://localhost:5984/", "hello2")
 	log.Printf(": %+v %+v", d, err)
 	// var i uint64
 	// for i = 9; i <= 1000; i++ {
 	// 	log.Printf("%d %s %v", i, counterToID(i), idToCounter(counterToID(i)))
 	// }
-	posting := daemon2.Posting{DBName: "abc2", Movements: map[string]float64{
+	posting := daemon2.Posting{Movements: map[string]float64{
 		"Account1": 10.12,
 		"Account2": -10.12,
 	}}

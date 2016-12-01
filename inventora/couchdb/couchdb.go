@@ -14,21 +14,19 @@ const ddocName = "postings"
 type Posting struct {
 	couchdb.Document
 	CreationInstant int64
-	DBName          string
 	Movements       map[string]float64
 	Tags            map[string]string
 }
 
 type Database struct {
 	db            couchdb.Database
-	name          string
 	idCounter     uint64
 	idCounterLock sync.Mutex
 }
 
-func New(dbName string) (*Database, error) {
-	client, err := couchdb.NewClient("http://127.0.0.1:5984/")
-	d := Database{name: dbName}
+func New(url string, dbName string) (*Database, error) {
+	client, err := couchdb.NewClient(url)
+	d := Database{}
 	if err != nil {
 		return nil, err
 	}
