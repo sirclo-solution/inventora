@@ -140,7 +140,7 @@ func (d *Database) AccountValue(accountID string) float64 {
 	s, _ := json.Marshal(accountID)
 	accountIDJSONEncoded := string(s)
 	itsTrue := true
-	response, err := view.Get("movements", couchdb.QueryParameters{
+	response, _ := view.Get("movements", couchdb.QueryParameters{
 		Group:  &itsTrue,
 		Reduce: &itsTrue,
 		Key:    &accountIDJSONEncoded,
