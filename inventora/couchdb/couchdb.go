@@ -20,10 +20,10 @@ type Posting struct {
 }
 
 type Database struct {
-	db             couchdb.Database
-	name           string
-	idCounter      uint64
-	idClounterLock sync.Mutex
+	db            couchdb.Database
+	name          string
+	idCounter     uint64
+	idCounterLock sync.Mutex
 }
 
 func New(dbName string) (*Database, error) {
@@ -84,8 +84,8 @@ func New(dbName string) (*Database, error) {
 }
 
 func (d *Database) incrementID() uint64 {
-	d.idClounterLock.Lock()
-	defer d.idClounterLock.Unlock()
+	d.idCounterLock.Lock()
+	defer d.idCounterLock.Unlock()
 	i := d.idCounter
 	d.idCounter++
 	return i
