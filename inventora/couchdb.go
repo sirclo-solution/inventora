@@ -15,8 +15,13 @@ const ddocName = "postings"
 type Posting struct {
 	couchdb.Document
 	CreationInstant int64
-	Movements       map[string]float64
+	Movements       []Movement
 	Tags            map[string]string
+}
+
+type Movement struct {
+	AccountID []string `json:"a"`
+	Quantity  float64  `json:"qty"`
 }
 
 type Database struct {
@@ -73,8 +78,8 @@ func New(url string, dbName string) (*Database, error) {
 					function (doc) {
 						if (doc.Movements) {
 							for (var k in doc.Movements) {
-								var i = +doc.Movements[k]
-								emit(k, isNaN(i) ? 0 : i)
+								var i = +(doc.Movements[k].qty)
+								emit(doc.Movements[k].a, isNaN(i) ? 0 : i)
 							}
 						}
 					}
@@ -145,7 +150,7 @@ func idToCounter(s string) uint64 {
 	return i
 }
 
-func (d *Database) AccountValue(accountID string) float64 {
+func (d *Database) AccountValue(accountID []string) float64 {
 	view := d.db.View(ddocName)
 	s, _ := json.Marshal(accountID)
 	accountIDJSONEncoded := string(s)

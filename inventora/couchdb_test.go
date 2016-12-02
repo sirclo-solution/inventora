@@ -31,9 +31,9 @@ func TestGetMultipleDB(t *testing.T) {
 
 func TestSimpleCommitPosting(t *testing.T) {
 	d := getNewDB("test_simple_commit_posting", t)
-	posting := Posting{Movements: map[string]float64{
-		"Account1": 10.12,
-		"Account2": -10.12,
+	posting := Posting{Movements: []Movement{
+		{[]string{"Account1"}, 10.12},
+		{[]string{"Account2"}, -10.12},
 	}}
 	err := d.CommitPosting(&posting)
 	t.Log(err)
@@ -46,12 +46,12 @@ func TestMovements(t *testing.T) {
 	d := getNewDB("test_commit_posting", t)
 	postings := []Posting{
 		{Movements: nil},
-		{Movements: map[string]float64{"Account1": 3, "Account2": -3}},
-		{Movements: map[string]float64{"Account1": 5, "Account2": -5}},
-		{Movements: map[string]float64{"Account1": 7, "Account2": -7}},
-		{Movements: map[string]float64{"Account2": 13, "Account3": -13}},
-		{Movements: map[string]float64{"Account1": -11, "Account3": 11}},
-		{Movements: map[string]float64{"Account1": 23, "Account2": -12.5, "Account3": -10.5}},
+		{Movements: []Movement{{[]string{"Account", "1"}, 3}, {[]string{"Account", "2"}, -3}}},
+		{Movements: []Movement{{[]string{"Account", "1"}, 5}, {[]string{"Account", "2"}, -5}}},
+		{Movements: []Movement{{[]string{"Account", "1"}, 7}, {[]string{"Account", "2"}, -7}}},
+		{Movements: []Movement{{[]string{"Account", "2"}, 13}, {[]string{"Account", "3"}, -13}}},
+		{Movements: []Movement{{[]string{"Account", "1"}, -11}, {[]string{"Account", "3"}, 11}}},
+		{Movements: []Movement{{[]string{"Account", "1"}, 23}, {[]string{"Account", "2"}, -12.5}, {[]string{"Account", "3"}, -10.5}}},
 	}
 	done := make(chan bool, len(postings))
 	for i := range postings {
@@ -70,17 +70,23 @@ func TestMovements(t *testing.T) {
 	}
 
 	expectedAccountValues := map[string]float64{
-		"Account1":          27,
-		"Account2":          -14.5,
-		"Account3":          -12.5,
-		"InexistentAccount": 0,
+		"1":          27,
+		"2":          -14.5,
+		"3":          -12.5,
+		"Inexistent": 0,
 	}
 
 	for i := range expectedAccountValues {
-		qty := d.AccountValue(i)
+		qty := d.AccountValue([]string{"Account", i})
 		t.Logf("Account %s expected quantity: %f actual: %f", i, expectedAccountValues[i], qty)
 		if math.Abs(qty-expectedAccountValues[i]) > 0.0000001 {
 			t.Fail()
 		}
 	}
+
+	totalQty := d.AccountValue([]string{"Account"})
+	if math.Abs(totalQty) > 0.0000001 {
+		t.Fail()
+	}
+
 }
