@@ -1,9 +1,8 @@
-package daemon2
+package inventora
 
 import (
-	"testing"
-
 	"math"
+	"testing"
 
 	"github.com/zemirco/couchdb"
 )

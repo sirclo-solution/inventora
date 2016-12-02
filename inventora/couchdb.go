@@ -1,4 +1,4 @@
-package daemon2
+package inventora
 
 import (
 	"encoding/json"
