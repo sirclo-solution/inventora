@@ -3,6 +3,7 @@ package daemon2
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
 	"sync"
 
@@ -36,10 +37,22 @@ func New(url string, dbName string) (*Database, error) {
 	}
 	// log.Printf("%+v", server)
 
-	_, err = client.Create(dbName)
-	d.db = client.Use(dbName)
-	if err == nil {
+	d.db = client.Use(dbName) // DB does not need to exist right now
+
+	// client.Get(dbName) is not compatible with couchdb 2.0, so we roll our own HEAD request
+	resp, err := http.Head(url + dbName)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
 		// Creating new database, so we initialize the design docs
+		_, err = client.Create(dbName)
+		if err != nil {
+			return nil, err
+		}
+
 		ddoc := couchdb.DesignDocument{
 			Language: "javascript",
 			Views: map[string]couchdb.DesignDocumentView{
@@ -76,9 +89,8 @@ func New(url string, dbName string) (*Database, error) {
 		// Database already exists, so we get the last ID from existing reduce function.
 		d.idCounter = d.lastIDForCounter() + 1
 	}
-	err = nil
 
-	return &d, err
+	return &d, nil
 }
 
 func (d *Database) incrementID() uint64 {
