@@ -20,7 +20,7 @@ type Posting struct {
 }
 
 type Movement struct {
-	AccountID []string `json:"a"`
+	AccountID []string `json:"acc"`
 	Quantity  float64  `json:"qty"`
 }
 
